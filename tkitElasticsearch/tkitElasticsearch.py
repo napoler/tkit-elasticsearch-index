@@ -18,9 +18,8 @@ import hashlib
 from datetime import datetime
 
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import bulk
-from elasticsearch_dsl import Q
-from elasticsearch_dsl import Search
+from elasticsearch.helpers import streaming_bulk
+from elasticsearch_dsl import Search, Q
 
 
 # from typing import
@@ -100,14 +99,24 @@ class tkitElasticsearch():
 
     def gendata(self, items):
         # mywords = ['foo', 'bar', 'baz']
+        out = []
         for item in items:
             myid = self.getId(item['id'])
             item["timestamp"] = datetime.now()
-            yield {
-                "_index": self.index,
-                "id": myid,
-                "body": item
-            }
+            item["_index"] = self.index
+            item["_id"] = myid
+            yield item
+            # yield {
+            #     "_index": self.index,
+            #     "_id": myid,
+            #     "body": item
+            # }
+        #     out.append({
+        #         "_index": self.index,
+        #         "id": myid,
+        #         "body": item
+        #     })
+        # return out
 
     def addMulti(self, items):
         """
@@ -118,8 +127,41 @@ class tkitElasticsearch():
 
         :return:
         """
+        # print("add")
+        successes = 0
+        # bulk(self.es, self.gendata(items), refresh=True)
+        for ok, action in streaming_bulk(
+                client=self.es, index=self.index, actions=self.gendata(items), chunk_size=500, refresh="true"
+        ):
+            # progress.update(1)
+            successes += ok
+            # print(ok, action)
 
-        bulk(self.es, self.gendata(items))
+    # def addMulti(self, items):
+    #     """
+    #
+    #     https://www.elastic.co/guide/en/elasticsearch/reference/6.8/multi-index.html#multi-index
+    #     https://stackoverflow.com/questions/61580963/insert-multiple-documents-in-elasticsearch-bulk-doc-formatter
+    #     https://elasticsearch-py.readthedocs.io/en/master/helpers.html
+    #
+    #     :return:
+    #     """
+    #
+    #     # bulk(self.es, self.gendata(items))
+    #     number_of_docs = 0
+    #     # print("Indexing documents...")
+    #     # progress = tqdm.tqdm(unit="docs", total=number_of_docs)
+    #     successes = 0
+    #     for ok, action in streaming_bulk(
+    #             client=self.es, index=self.index, actions=self.gendata(items), chunk_size=1, refresh="true"
+    #     ):
+    #         # progress.update(1)
+    #         successes += ok
+    #     # print("Indexed %d/%d documents" % (successes, len(items)))
+
+    def reindex(self):
+        # reindex(client=self.es, source_index=self.index)
+        pass
 
     def find(self, keyword, limit=50, fields=['content']):
         """
@@ -131,11 +173,20 @@ class tkitElasticsearch():
         :return:
         """
         # client = Elasticsearch()
+        # https: // elasticsearch - dsl.readthedocs.io / en / latest / search_dsl.html
         q = Q("multi_match", query=keyword, fields=fields)
-        # s = Search(using=self.es)
-        # s = Search(using=self.es, index="pet-index").query("match", content=keyword)
+        # print(q)
         # s = Search(using=self.es, index=self.index).query(q)
-        s = Search(using=self.es, index=self.index).query("match", content=keyword)
+        # print(dir(s))
+        # s = s[0:limit]
+        # s = s.highlight_options(order='score')
+        # s = s.highlight('content')
+        # for it in s.execute():
+        #     print(it)
+
+        # s = Search(using=self.es, index="pet-index").query("match", content=keyword)
+        s = Search(using=self.es, index=self.index).query(q)
+        # s = Search(using=self.es, index=self.index).query("fuzzy", content=keyword)
         s = s[0:limit]
         s = s.highlight_options(order='score')
         s = s.highlight('content')
