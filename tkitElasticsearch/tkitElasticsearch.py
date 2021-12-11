@@ -15,12 +15,10 @@ for index in es.indices.get('*'):
 
 """
 import hashlib
-import json
-import os
-import os
 from datetime import datetime
 
 from elasticsearch import Elasticsearch
+from elasticsearch.helpers import bulk
 from elasticsearch_dsl import Q
 from elasticsearch_dsl import Search
 
@@ -38,7 +36,9 @@ class tkitElasticsearch():
     # es = Elasticsearch('127.0.0.1:9200')
     def __init__(self, host='127.0.0.1:9200', index="tkit-index"):
         """
-
+        #创建索引，索引的名字是my-index,如果已经存在了，就返回个400，
+        #这个索引可以现在创建，也可以在后面插入数据的时候再临时创建
+        es.indices.create(index='my-index',ignore)
 
 
         """
@@ -79,9 +79,7 @@ class tkitElasticsearch():
 
     def add(self, item):
         """
-        #创建索引，索引的名字是my-index,如果已经存在了，就返回个400，
-        #这个索引可以现在创建，也可以在后面插入数据的时候再临时创建
-        es.indices.create(index='my-index',ignore)
+
         :param item:
         :return:
         """
@@ -99,6 +97,29 @@ class tkitElasticsearch():
             print("错误", e)
             # res = self.es.update(index=self.index, id=myid, body=item)
             pass
+
+    def gendata(self, items):
+        # mywords = ['foo', 'bar', 'baz']
+        for item in items:
+            myid = self.getId(item['id'])
+            item["timestamp"] = datetime.now()
+            yield {
+                "_index": self.index,
+                "id": myid,
+                "body": item
+            }
+
+    def addMulti(self, items):
+        """
+
+        https://www.elastic.co/guide/en/elasticsearch/reference/6.8/multi-index.html#multi-index
+        https://stackoverflow.com/questions/61580963/insert-multiple-documents-in-elasticsearch-bulk-doc-formatter
+        https://elasticsearch-py.readthedocs.io/en/master/helpers.html
+
+        :return:
+        """
+
+        bulk(self.es, self.gendata(items))
 
     def find(self, keyword, limit=50, fields=['content']):
         """

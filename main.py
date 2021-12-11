@@ -3,7 +3,6 @@
 # Press Shift+F10 to execute it or replace it with your code.
 # Press 双击 Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
-import time
 from datetime import datetime
 
 from tkitElasticsearch import tkitElasticsearch
@@ -16,6 +15,18 @@ for it in range(2):
     item["content"] = item["content"] + str(it)
     es.add(item)
 es.save()
+
+# addMulti
+items = []
+for it in range(2):
+    print(datetime.now())
+    item["id"] = datetime.now()
+    item["content"] = item["content"] + str(it)
+    # es.add(item)
+    items.append(item)
+es.addMulti(items)
+es.save()
+
 for it in es.find("鸡新", limit=2, fields=['content']):
     print(dir(it))
     print(it)
